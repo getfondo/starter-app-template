@@ -14,7 +14,7 @@ jobs:
     name: ci
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -44,7 +44,7 @@ jobs:
       IMAGE_APP: ${{ vars.ACR_LOGIN_SERVER }}/app
       IMAGE_KC: ${{ vars.ACR_LOGIN_SERVER }}/keycloak
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Azure login (OIDC, no stored secrets)
         uses: azure/login@v3

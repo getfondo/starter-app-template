@@ -1,0 +1,40 @@
+:root {
+    --brand-primary: #006fee;
+    --brand-primary-hover: #0059be;
+    --brand-background: #f3f6fa;
+    --brand-header-text: #1b1f24;
+}
+
+.login-pf body {
+    background: var(--brand-background);
+}
+
+:root,
+.pf-v5-theme-dark {
+    --keycloak-card-top-color: var(--brand-primary);
+    --pf-v5-global--primary-color--100: var(--brand-primary);
+    --pf-v5-global--primary-color--200: var(--brand-primary-hover);
+    --pf-v5-global--link--Color: var(--brand-primary);
+    --pf-v5-global--link--Color--hover: var(--brand-primary-hover);
+}
+
+.pf-v5-c-button.pf-m-primary {
+    --pf-v5-c-button--m-primary--BackgroundColor: var(--brand-primary);
+    --pf-v5-c-button--m-primary--hover--BackgroundColor: var(--brand-primary-hover);
+    --pf-v5-c-button--m-primary--focus--BackgroundColor: var(--brand-primary-hover);
+    --pf-v5-c-button--m-primary--active--BackgroundColor: var(--brand-primary-hover);
+}
+
+#kc-header-wrapper {
+    color: var(--brand-header-text) !important;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+div.kc-logo-text {
+    background-image: none;
+}
+
+div.kc-logo-text span {
+    display: inline;
+}

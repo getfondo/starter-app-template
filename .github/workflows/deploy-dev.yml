@@ -1,0 +1,94 @@
+name: deploy-dev
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install, typecheck, test
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+
+  build-and-deploy:
+    needs: ci
+    # Skipped until Fondo has set the repo variables: the push that creates the repo runs only ci, so the founder
+    # never sees a red run. Fondo then dispatches this workflow itself.
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && vars.AZURE_CLIENT_ID != ''
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    concurrency:
+      group: deploy-dev
+      cancel-in-progress: false
+    env:
+      TAG: ${{ github.sha }}
+      IMAGE_APP: ${{ vars.ACR_LOGIN_SERVER }}/app
+      IMAGE_KC: ${{ vars.ACR_LOGIN_SERVER }}/keycloak
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC, no stored secrets)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Log in to the container registry
+        run: az acr login --name "${ACR_LOGIN_SERVER%%.*}"
+        env:
+          ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
+
+      - name: Build and push the app image
+        run: |
+          docker build -t "$IMAGE_APP:$TAG" -t "$IMAGE_APP:dev" .
+          docker push "$IMAGE_APP:$TAG"
+          docker push "$IMAGE_APP:dev"
+
+      - name: Build and push the Keycloak image
+        run: |
+          docker build -f keycloak/Dockerfile -t "$IMAGE_KC:$TAG" -t "$IMAGE_KC:dev" .
+          docker push "$IMAGE_KC:$TAG"
+          docker push "$IMAGE_KC:dev"
+
+      - name: Update Dev Keycloak
+        run: az containerapp update -n "${{ vars.DEV_KEYCLOAK_APP_NAME }}" -g "${{ vars.DEV_RESOURCE_GROUP }}" --image "$IMAGE_KC:$TAG"
+
+      - name: Wait for the new Dev Keycloak revision
+        run: bash scripts/wait-for-revision.sh "${{ vars.DEV_KEYCLOAK_APP_NAME }}" "${{ vars.DEV_RESOURCE_GROUP }}" 600
+
+      - name: Update Dev app (migrations run on container start)
+        run: az containerapp update -n "${{ vars.DEV_APP_NAME }}" -g "${{ vars.DEV_RESOURCE_GROUP }}" --image "$IMAGE_APP:$TAG"
+
+      - name: Wait for the new Dev app revision
+        run: bash scripts/wait-for-revision.sh "${{ vars.DEV_APP_NAME }}" "${{ vars.DEV_RESOURCE_GROUP }}" 600
+
+      - name: Check Dev health
+        run: |
+          for _ in $(seq 1 20); do
+            if curl -fsS "https://${{ vars.DEV_HOSTNAME }}/healthz" >/dev/null; then
+              echo "Dev is healthy"; exit 0
+            fi
+            sleep 15
+          done
+          echo "Dev did not answer /healthz in 5 minutes" >&2
+          exit 1

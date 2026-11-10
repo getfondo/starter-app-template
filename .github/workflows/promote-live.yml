@@ -1,0 +1,75 @@
+name: promote-live
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Image tag already deployed to Dev (a commit SHA)
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: promote-live
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.image_tag }}
+      DEV_APP: ${{ vars.ACR_LOGIN_SERVER }}/app
+      DEV_KC: ${{ vars.ACR_LOGIN_SERVER }}/keycloak
+      LIVE_APP: ${{ vars.LIVE_ACR_LOGIN_SERVER }}/app
+      LIVE_KC: ${{ vars.LIVE_ACR_LOGIN_SERVER }}/keycloak
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the image tag is a commit SHA
+        run: '[[ "$TAG" =~ ^[0-9a-f]{7,40}$ ]] || { echo "image_tag must be a commit SHA" >&2; exit 1; }'
+      - name: Azure login as the Dev deploy identity (pull)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Pull the Dev images
+        run: |
+          az acr login --name "${DEV_APP%%.*}"
+          docker pull "$DEV_APP:$TAG"
+          docker pull "$DEV_KC:$TAG"
+      - name: Azure login as the Live deploy identity (push and update)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.LIVE_AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Push the images to the Live registry
+        run: |
+          az acr login --name "${LIVE_APP%%.*}"
+          docker tag "$DEV_APP:$TAG" "$LIVE_APP:$TAG" && docker push "$LIVE_APP:$TAG"
+          docker tag "$DEV_KC:$TAG" "$LIVE_KC:$TAG" && docker push "$LIVE_KC:$TAG"
+      - name: Update Live Keycloak
+        run: az containerapp update -n "${{ vars.LIVE_KEYCLOAK_APP_NAME }}" -g "${{ vars.LIVE_RESOURCE_GROUP }}" --image "$LIVE_KC:$TAG"
+
+      - name: Wait for the new Live Keycloak revision
+        run: bash scripts/wait-for-revision.sh "${{ vars.LIVE_KEYCLOAK_APP_NAME }}" "${{ vars.LIVE_RESOURCE_GROUP }}" 600
+
+      - name: Update Live app
+        run: az containerapp update -n "${{ vars.LIVE_APP_NAME }}" -g "${{ vars.LIVE_RESOURCE_GROUP }}" --image "$LIVE_APP:$TAG"
+
+      - name: Wait for the new Live app revision
+        run: bash scripts/wait-for-revision.sh "${{ vars.LIVE_APP_NAME }}" "${{ vars.LIVE_RESOURCE_GROUP }}" 600
+
+      - name: Check Live health
+        run: |
+          for _ in $(seq 1 20); do
+            if curl -fsS "https://${{ vars.LIVE_HOSTNAME }}/healthz" >/dev/null; then
+              echo "Live is healthy"; exit 0
+            fi
+            sleep 15
+          done
+          echo "Live did not answer /healthz in 5 minutes" >&2
+          exit 1

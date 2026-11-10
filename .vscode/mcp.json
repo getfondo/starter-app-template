@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "fondo": {
+      "type": "http",
+      "url": "${FONDO_MCP_URL}"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "slug": "starter",
+  "productName": "Starter",
+  "tagline": "A starting point",
+  "description": "The Fondo starter app before a plan is applied.",
+  "color": "#006FEE",
+  "signUp": "self_serve",
+  "environments": "dev_live",
+  "userTypes": [
+    { "name": "member", "label": "member", "does": ["keeps records"], "can": [{ "entity": "Record", "actions": ["read", "create", "update", "delete"] }] }
+  ],
+  "entities": [
+    {
+      "name": "Record",
+      "label": "record",
+      "labelPlural": "records",
+      "fields": [
+        { "name": "title", "label": "title", "type": "text", "required": true },
+        { "name": "notes", "label": "notes", "type": "long_text", "required": false }
+      ]
+    }
+  ],
+  "signals": { "expectedUsersYearOne": "under_100", "geography": ["United States"], "sensitiveData": ["none"] },
+  "decisions": []
+}

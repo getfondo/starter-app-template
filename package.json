@@ -19,7 +19,7 @@
   "dependencies": {
     "@azure/identity": "^4.5.0",
     "@azure/storage-blob": "^12.26.0",
-    "@fastify/multipart": "^9.4.0",
+    "@fastify/multipart": "^10.1.8",
     "@fastify/static": "^8.0.0",
     "@microsoft/opentelemetry": "^1.5.0",
     "drizzle-orm": "^0.45.0",

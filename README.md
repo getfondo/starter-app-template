@@ -4,7 +4,7 @@ A starting point. Built by Fondo and running on Azure.
 
 ## Run it on your machine
 
-You need Docker and Node.js 22 or later.
+You need Docker and Node.js 26 or later.
 
     npm install
     npm run dev

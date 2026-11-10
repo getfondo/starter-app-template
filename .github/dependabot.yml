@@ -1,15 +1,28 @@
+# Security fixes only. open-pull-requests-limit: 0 turns off routine version-update pull requests for each
+# ecosystem, while Dependabot security updates keep opening pull requests for known vulnerabilities
+# (they have their own fixed limit of 10 open pull requests that this setting does not change).
+# Security updates also need "Dependabot security updates" turned on in the repository settings.
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#open-pull-requests-limit
+# https://docs.github.com/en/code-security/dependabot/dependabot-security-updates/configuring-dependabot-security-updates
 version: 2
 updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0
+  # Dependabot security updates do not support the docker ecosystem, so with the limit at 0 these entries open no
+  # pull requests. Fondo bumps the Node and Keycloak images when it republishes the template.
+  # https://docs.github.com/en/code-security/dependabot/ecosystems-supported-by-dependabot/supported-ecosystems-and-repositories
   - package-ecosystem: "docker"
-    directory: "/"
+    directories:
+      - "/"
+      - "/keycloak"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0

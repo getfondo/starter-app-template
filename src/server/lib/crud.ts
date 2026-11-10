@@ -19,7 +19,7 @@ export type EntityDef = {
   labelPlural: string;
   path: string;
   table: EntityTable;
-  insertSchema: z.ZodObject<z.ZodRawShape>;
+  insertSchema: z.ZodObject<Record<string, z.ZodType>>;
   ownedBy?: string;
   permissions: Record<string, EntityAction[]>;
 };

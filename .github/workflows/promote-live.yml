@@ -26,7 +26,7 @@ jobs:
       LIVE_APP: ${{ vars.LIVE_ACR_LOGIN_SERVER }}/app
       LIVE_KC: ${{ vars.LIVE_ACR_LOGIN_SERVER }}/keycloak
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check the image tag is a commit SHA
         run: '[[ "$TAG" =~ ^[0-9a-f]{7,40}$ ]] || { echo "image_tag must be a commit SHA" >&2; exit 1; }'
       - name: Azure login as the Dev deploy identity (pull)

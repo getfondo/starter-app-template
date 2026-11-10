@@ -42,7 +42,7 @@ const defs: EntityDef[] = [
     labelPlural: "comments",
     path: "comments",
     table: commentTable,
-    insertSchema: z.object({ body: z.string().min(1), note_id: z.string().uuid() }),
+    insertSchema: z.object({ body: z.string().min(1), note_id: z.guid() }),
     permissions: { staff: ["read", "create", "delete"], customer: ["read", "create"] },
   },
 ];

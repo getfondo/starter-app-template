@@ -1,5 +1,5 @@
 # Build stage: install everything, build the web app and the server.
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
@@ -8,7 +8,7 @@ RUN npm run build
 
 # Runtime stage: production dependencies only, built assets, committed migrations, plan.json.
 # WORKDIR /app makes runMigrations' default process.cwd()/drizzle resolve to /app/drizzle.
-FROM node:22-alpine
+FROM node:26-alpine
 WORKDIR /app
 ENV NODE_ENV=production PORT=8080
 COPY package.json package-lock.json ./

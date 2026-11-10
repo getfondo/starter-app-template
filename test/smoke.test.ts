@@ -3,20 +3,21 @@ import type { FastifyInstance } from "fastify";
 import { buildApp, type AppOptions } from "../src/server/app.js";
 import { randomUUID } from "node:crypto";
 import { BlobServiceClient } from "@azure/storage-blob";
-import type { ZodTypeAny } from "zod";
+import { z } from "zod";
 import { testIssuer, type TestIssuer } from "./helpers/auth.js";
 import { createBlobStore, type BlobStore } from "../src/server/blob.js";
 import { createDb } from "../src/server/db/client.js";
 import { runMigrations } from "../src/server/db/migrate.js";
 import { entityDefs, userTypes } from "../src/server/routes/entities.js";
 
-type Check = { kind: string };
-function checksOf(schema: ZodTypeAny): Check[] {
-  return (schema._def as { checks?: Check[] }).checks ?? [];
-}
+// Reads zod 4 schema internals: def.type names the kind ("string", "pipe", "enum", ...) and string formats sit on .format.
+type Def = { type: string; out?: z.ZodType };
+const defOf = (schema: z.ZodType): Def => schema._zod.def as unknown as Def;
+const formatOf = (schema: z.ZodType): string | undefined => (schema as unknown as { format?: string | null }).format ?? undefined;
+const isReference = (schema: z.ZodType): boolean => ["uuid", "guid"].includes(formatOf(schema) ?? "");
 
 function hasRequiredReference(def: (typeof entityDefs)[number]): boolean {
-  return Object.values(def.insertSchema.shape).some((f) => !f.isOptional() && checksOf(f).some((c) => c.kind === "uuid"));
+  return Object.values(def.insertSchema.shape).some((f) => !f.isOptional() && isReference(f));
 }
 
 function pickEntity() {
@@ -24,24 +25,39 @@ function pickEntity() {
 }
 
 // Builds a value that satisfies a required zod field: enum first option, uuid, email, url, YYYY-MM-DD for regex, else text.
-function sampleFor(schema: ZodTypeAny): unknown {
-  const typeName = (schema._def as { typeName: string }).typeName;
-  // z.preprocess(...) wraps the real schema; sample the inner one.
-  if (typeName === "ZodEffects") return sampleFor((schema._def as unknown as { schema: ZodTypeAny }).schema);
-  if (typeName === "ZodBoolean") return true;
-  if (typeName === "ZodNumber") return 1;
-  if (typeName === "ZodDate") return new Date().toISOString();
-  if (typeName === "ZodEnum") return (schema as unknown as { options: string[] }).options[0];
-  if (typeName === "ZodString") {
-    const kinds = checksOf(schema).map((c) => c.kind);
-    if (kinds.includes("uuid")) return randomUUID();
-    if (kinds.includes("email")) return "smoke@example.com";
-    if (kinds.includes("url")) return "https://example.com/";
-    if (kinds.includes("regex")) return "2026-01-01";
+function sampleFor(schema: z.ZodType): unknown {
+  const def = defOf(schema);
+  // z.preprocess(...) is a pipe from a transform into the real schema; sample the real one.
+  if (def.type === "pipe" && def.out) return sampleFor(def.out);
+  if (def.type === "boolean") return true;
+  if (def.type === "number") return 1;
+  if (def.type === "date") return new Date().toISOString();
+  if (def.type === "enum") return (schema as unknown as { options: string[] }).options[0];
+  if (def.type === "string") {
+    if (isReference(schema)) return randomUUID();
+    const format = formatOf(schema);
+    if (format === "email") return "smoke@example.com";
+    if (format === "url") return "https://example.com/";
+    if (format === "regex") return "2026-01-01";
     return "smoke";
   }
   return "smoke";
 }
+
+describe("smoke test helpers", () => {
+  // sampleFor reads zod internals. If a zod release renames them, every field would silently sample as "smoke".
+  it("sampleFor reads the zod schema kinds the generator emits", () => {
+    expect(sampleFor(z.email())).toBe("smoke@example.com");
+    expect(sampleFor(z.url())).toBe("https://example.com/");
+    expect(sampleFor(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))).toBe("2026-01-01");
+    expect(sampleFor(z.enum(["a", "b"]))).toBe("a");
+    expect(sampleFor(z.preprocess((v) => v, z.coerce.number()))).toBe(1);
+    expect(sampleFor(z.preprocess((v) => v, z.boolean()))).toBe(true);
+    expect(sampleFor(z.guid())).toMatch(/^[0-9a-f-]{36}$/);
+    expect(isReference(z.guid())).toBe(true);
+    expect(isReference(z.string())).toBe(false);
+  });
+});
 
 const publicConfig = { keycloakUrl: "http://localhost:8080", realm: "test", clientId: "web" };
 

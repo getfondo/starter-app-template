@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { NavLink, Navigate, Route, Routes } from "react-router";
 import { entityPages } from "./entities/index";
 import { theme } from "./theme";
 import { currentUser, signOut } from "./lib/auth";

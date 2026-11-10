@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../lib/api";
 import type { EntitySpec, Row } from "../lib/spec";
 import { FieldInput } from "./FieldInput";
